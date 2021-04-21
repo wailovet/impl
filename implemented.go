@@ -1,6 +1,7 @@
-package main
+package impl
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -12,7 +13,10 @@ import (
 func implementedFuncs(fns []Func, recv string, srcDir string) (map[string]bool, error) {
 
 	// determine name of receiver type
-	recvType := getReceiverType(recv)
+	recvType, err := getReceiverType(recv)
+	if err != nil {
+		return nil, err
+	}
 
 	fset := token.NewFileSet()
 	pkgs, err := parser.ParseDir(fset, srcDir, nil, 0)
@@ -76,7 +80,7 @@ func implementedFuncs(fns []Func, recv string, srcDir string) (map[string]bool, 
 
 // getReceiverType returns type name of receiver or fatal if receiver is invalid.
 // ex: for definition "r *SomeType" will return "SomeType"
-func getReceiverType(recv string) string {
+func getReceiverType(recv string) (string, error) {
 	var recvType string
 
 	// VSCode adds a trailing space to receiver (it runs impl like: impl 'r *Receiver ' io.Writer)
@@ -89,10 +93,10 @@ func getReceiverType(recv string) string {
 	case 2: // (x SomeType)
 		recvType = parts[1]
 	default:
-		fatal(fmt.Sprintf("invalid receiver: %q", recv))
+		return "", errors.New(fmt.Sprintf("invalid receiver: %q", recv))
 	}
 
 	// Pointer to receiver should be removed too for comparison purpose.
 	// But don't worry definition of default receiver won't be changed.
-	return strings.TrimPrefix(recvType, "*")
+	return strings.TrimPrefix(recvType, "*"), nil
 }

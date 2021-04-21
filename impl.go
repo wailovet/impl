@@ -1,9 +1,8 @@
 // impl generates method stubs for implementing an interface.
-package main
+package impl
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"go/ast"
 	"go/build"
@@ -18,24 +17,6 @@ import (
 	"text/template"
 
 	"golang.org/x/tools/imports"
-)
-
-const usage = `impl [-dir directory] <recv> <iface>
-
-impl generates method stubs for recv to implement iface.
-
-Examples:
-
-impl 'f *File' io.Reader
-impl Murmur hash.Hash
-impl -dir $GOPATH/src/github.com/josharian/impl Murmur hash.Hash
-
-Don't forget the single quotes around the receiver type
-to prevent shell globbing.
-`
-
-var (
-	flagSrcDir = flag.String("dir", "", "package source directory, useful for vendored code")
 )
 
 // findInterface returns the import path and identifier of an interface.
@@ -254,6 +235,32 @@ type Param struct {
 	Type string
 }
 
+func Do(recv, iface string, flagSrcDirs ...string) (string, error) {
+	flagSrcDir := ""
+	if len(flagSrcDirs) > 0 {
+		flagSrcDir = flagSrcDirs[0]
+	}
+	if flagSrcDir == "" {
+		if dir, err := os.Getwd(); err == nil {
+			flagSrcDir = dir
+		}
+	}
+
+	fns, err := funcs(iface, flagSrcDir)
+	if err != nil {
+		return "", err
+	}
+
+	// Get list of already implemented funcs
+	implemented, err := implementedFuncs(fns, recv, flagSrcDir)
+	if err != nil {
+		return "", err
+	}
+
+	src := genStubs(recv, fns, implemented)
+	return string(src), nil
+}
+
 func (p Pkg) funcsig(f *ast.Field, cmap ast.CommentMap) Func {
 	fn := Func{Name: f.Names[0].Name}
 	typ := f.Type.(*ast.FuncType)
@@ -364,18 +371,6 @@ func genStubs(recv string, fns []Func, implemented map[string]bool) []byte {
 	return pretty
 }
 
-// validReceiver reports whether recv is a valid receiver expression.
-func validReceiver(recv string) bool {
-	if recv == "" {
-		// The parse will parse empty receivers, but we don't want to accept them,
-		// since it won't generate a usable code snippet.
-		return false
-	}
-	fset := token.NewFileSet()
-	_, err := parser.ParseFile(fset, "", "package hack\nfunc ("+recv+") Foo()", 0)
-	return err == nil
-}
-
 // commentsBefore reports whether commentGroups precedes a field.
 func commentsBefore(field *ast.Field, cg []*ast.CommentGroup) bool {
 	if len(cg) > 0 {
@@ -411,43 +406,4 @@ func flattenCommentMap(m ast.CommentMap) string {
 	}
 
 	return result.String()
-}
-
-func main() {
-	flag.Parse()
-
-	if len(flag.Args()) < 2 {
-		fmt.Fprint(os.Stderr, usage)
-		os.Exit(2)
-	}
-
-	recv, iface := flag.Arg(0), flag.Arg(1)
-	if !validReceiver(recv) {
-		fatal(fmt.Sprintf("invalid receiver: %q", recv))
-	}
-
-	if *flagSrcDir == "" {
-		if dir, err := os.Getwd(); err == nil {
-			*flagSrcDir = dir
-		}
-	}
-
-	fns, err := funcs(iface, *flagSrcDir)
-	if err != nil {
-		fatal(err)
-	}
-
-	// Get list of already implemented funcs
-	implemented, err := implementedFuncs(fns, recv, *flagSrcDir)
-	if err != nil {
-		fatal(err)
-	}
-
-	src := genStubs(recv, fns, implemented)
-	fmt.Print(string(src))
-}
-
-func fatal(msg interface{}) {
-	fmt.Fprintln(os.Stderr, msg)
-	os.Exit(1)
 }
