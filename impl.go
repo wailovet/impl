@@ -27,7 +27,13 @@ import (
 // If an unqualified interface such as "UserDefinedInterface" is given, then
 // the interface definition is presumed to be in the package within srcDir and
 // findInterface returns "", "UserDefinedInterface".
+
 func findInterface(iface string, srcDir string) (path string, id string, err error) {
+	pathId := strings.Split(iface, ".")
+	return pathId[0], pathId[1], nil
+}
+
+func _findInterface(iface string, srcDir string) (path string, id string, err error) {
 	if len(strings.Fields(iface)) != 1 {
 		return "", "", fmt.Errorf("couldn't parse interface: %s", iface)
 	}
@@ -55,6 +61,8 @@ func findInterface(iface string, srcDir string) (path string, id string, err err
 	src := []byte("package hack\n" + "var i " + iface)
 	// If we couldn't determine the import path, goimports will
 	// auto fix the import path.
+
+	// log.Println(string(src))
 	imp, err := imports.Process(srcPath, src, nil)
 	if err != nil {
 		return "", "", fmt.Errorf("couldn't parse interface: %s", iface)
