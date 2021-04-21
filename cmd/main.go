@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"go/parser"
 	"go/token"
-	"log"
 	"os"
 
 	"github.com/wailovet/impl"
@@ -55,7 +54,10 @@ func main() {
 
 	src, err := impl.Do(recv, iface, *flagSrcDir)
 	if err != nil {
-		log.Panic(err)
+		fmt.Print(err.Error())
+	} else {
+
+		fmt.Print(string(src))
 	}
 	fmt.Print(string(src))
 }

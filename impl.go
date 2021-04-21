@@ -10,6 +10,7 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -30,7 +31,7 @@ import (
 
 func findInterface(iface string, srcDir string) (path string, id string, err error) {
 	pathId := strings.Split(iface, ".")
-	return pathId[0], pathId[1], nil
+	return strings.Join(pathId[:len(pathId)-1], "."), pathId[len(pathId)-1], nil
 }
 
 func _findInterface(iface string, srcDir string) (path string, id string, err error) {
@@ -62,7 +63,7 @@ func _findInterface(iface string, srcDir string) (path string, id string, err er
 	// If we couldn't determine the import path, goimports will
 	// auto fix the import path.
 
-	// log.Println(string(src))
+	log.Println(string(src))
 	imp, err := imports.Process(srcPath, src, nil)
 	if err != nil {
 		return "", "", fmt.Errorf("couldn't parse interface: %s", iface)
@@ -115,6 +116,7 @@ func _findInterface(iface string, srcDir string) (path string, id string, err er
 	sel := spec.Type.(*ast.SelectorExpr)   // io.Reader
 	id = sel.Sel.Name                      // Reader
 
+	log.Println(path, id)
 	return path, id, nil
 }
 
